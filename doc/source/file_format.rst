@@ -726,8 +726,9 @@ individual chunks.
 Unfortunately, there is no size or version field, meaning that it is not 
 possible to skip unknown or unsupported chunks when reading.
 
-At this point, it is unknown if the chunks in a swatches document are shared 
-with the doc.dat format or if they can only appear in a Swatches.dat file.
+Some of the chunks in a swatches document also seem to pop up in a doc.dat file.
+At this point, it is not clear if this is because of embedded swatches, or if
+some of these chunks also have meaning in context of the main document.
 
 Swatches.dat starts out with a signature that's curiously similar to the 
 signature of the container file format. This signature is "00 FF 4B 53" hex. 
