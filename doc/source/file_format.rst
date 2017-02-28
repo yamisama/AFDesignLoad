@@ -39,6 +39,10 @@ It looks the the ``#Fil`` section is ended with ``0xFFFFFFFF``. The #FAT section
 also ends with this marker if a thumbnail follows, otherwise this marker is 
 omitted (eg. for swatch files).
 
+In some files, such as `ˆdjustments.propcol``, there seem to be not one but
+*two* #FT2 sections, with #Fil sections that appear *after* the first #FT2 
+section.
+
 Header
 ======
 
@@ -87,6 +91,9 @@ In palette files, the Swatches.doc starts out with the first 3 bytes identical
 to the container signature, with only the last byte differing, so we can assume
 that this is not just one large uint32_t.
 
+The last byte seems to indicate the file type, with 0x41 indicating the main 
+container format.
+
 Version
 ~~~~~~~
 
@@ -130,17 +137,66 @@ your convenience.
 
 Here are the file types known so far with the corresponding extensions.
 
-+-----------+-----------------------+--------------------------+--------------------------------+
-| File Type | Extensions            | Main document file name  | Description                    |
-+===========|=======================+==========================+================================+
-| Prsn      | .afdesign, .afphoto   | doc.dat                  | Persona Document               |
-+-----------+-----------------------+--------------------------+--------------------------------+
-| BrAr      | .afbrushes, .afmacros | brushes.dat / Macros.dat | Brush Archive or Macro Archive |
-+-----------+-----------------------+--------------------------+--------------------------------+
-| AsAr      | .afassets             | Assets.dat               | Assets Archive (1.5 and up)    |
-+-----------+-----------------------+--------------------------+--------------------------------+
-| Swth      | .afpalette            | Swatches.dat             | Swatches                       |
-+-----------+-----------------------+--------------------------+--------------------------------+
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| File Type | Extensions / Name      | Main document file name  | Description                                                                    |
++===========|========================+==========================+================================================================================+
+| Prsn      | .afdesign, .afphoto    | doc.dat                  | Persona Document                                                               |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| BrAr      | .afbrushes, .afmacros  | brushes.dat / Macros.dat | Brush Archive or Macro Archive                                                 |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| AsAr      | .afassets              | Assets.dat               | Assets Archive (1.5 and up)                                                    |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Swth      | .afpalette             | Swatches.dat             | Swatches                                                                       |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Pref      | preferences.dat        | preferences              |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Adjm      | adjustments.propcol    | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| AstP      | assets.propcol         | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| CroP      | croppresets.propcol    |                          | No presets, so file empty in my case, but filename would likely be "structure" |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| DevP      | develop.propcol        | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Fils      | fills.propcol          | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| FoMa      | font_map.dat           | n/a                      | See notes - not really an Affinity Container file                              |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Macs      | macros.propcol         | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Objs      | objects.propcol        | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| OSty      | objectstyles.propcol   | (none)                   |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| RBur      | raster_brushes.propcol | (none?)                  |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| Shps      | shapes.propcol         | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| TonP      | tone_map.propcol       | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+| VBru      | vector_brushes.propcol | structure                |                                                                                |
++-----------+------------------------+--------------------------+--------------------------------------------------------------------------------+
+
+preferences.dat is found in ~/Library/Containers/com.seriflabs.affinitydesigner 
+(for Designer) or ~/Library/Containers/com.seriflabs.affinityphoto (for Photo) 
+on macOS, in the subdirectory /Data/Library/Application Support.
+
+This folder also has a "user" subfolder that contains additional files with a
+.propcol extension that use the Affinity container format as well.
+
+The font_map.dat file is interesting in that the last byte of the signature of 
+the main file is 0x53, just like for the Swatches.dat files. Hence this is not
+an Affinity Container file, but the font map data file is stored without a 
+container. The .dat extension is a further indication, as is the fact, that 
+font_map.dat does not have the complete header of the container format. 
+The two-byte version field that follows the signature is set to 1 (unlike for
+Swatches.dat, where it is set to 2).
+
+It is also worth noting that some of the .propcol files seem to use an earlier
+version of the container format, with some like the raster_brushes.propcol using
+version 8 instead of 10, even for Affinity 1.5. This may be due to them being
+created by older versions and never having been re-written since.
+
 
 Offsets
 ~~~~~~~
@@ -151,6 +207,14 @@ section.
 The second number is the absolute offset of the end of #FAT (or #FT2) section.
 Since Designer files contain an additional PNG thumbnail after the FAT, this can
 not be assumed to be the total size of the container file.
+
+If there are multiple #FAT/#FT2 sections (such as in the adjustments.propcol 
+file), the offset field in the main header points to the last #FT2 section in 
+the file.
+
+If the file is empty (i.e. no #Fil sections), the #FAT/#FT2 offset is set to
+zero and no #FAT/#FT2 section is written into the file (can be observed in
+an empty croppresets.propcol file).
 
 If there is only one nested file in the container, the data\_length field seems
 to be the compressed size of said file, excluding the #Fil marker that strats a
@@ -241,6 +305,10 @@ versa. These should ideally be compared and amended at some point.
 
 The #FT2 section replaces the older #FAT section in Affinity versions from 1.5
 on (file format version 10).
+
+If there are no files in the container (i.e. no #Fil sections), the #FT2 section
+is not written at all and the corresponding offset field in the main header is
+set to zero.
 
 This is the header for the version 2 FAT:
 
@@ -671,8 +739,8 @@ test file that was generated by Affinity 1.5).
 
 After this, the chunk data follows.
 
-Tags are again human-readable four character constants that appear flipped in a hex editor due
-to little endian storage.
+Tags are again human-readable four character constants that appear flipped in a 
+hex editor due to little endian storage.
 
 Here are the ones that are known so far. Note that since there are no size 
 fields, some of these might be nested in others or only happen to be four 
@@ -736,6 +804,8 @@ Layout of the chunk is as follows
 +--------+-----------+--------------+--------------------------------+
 | count  | type      | name         | description                    |
 +========+===========+==============+================================+
+| 1      | uint32\_t | tag          | 'PaNV'                         |
++--------+-----------+--------------+--------------------------------+
 | 1      | uint32\_t | data size    | number of bytes of swatch data |
 +--------+-----------+--------------+--------------------------------+
 | 1      | uint32\_t | num swatches | swatch count. See notes.       |
