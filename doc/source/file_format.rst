@@ -39,7 +39,7 @@ It looks the the ``#Fil`` section is ended with ``0xFFFFFFFF``. The #FAT section
 also ends with this marker if a thumbnail follows, otherwise this marker is 
 omitted (eg. for swatch files).
 
-In some files, such as `ˆdjustments.propcol``, there seem to be not one but
+In some files, such as ``adjustments.propcol``, there seem to be not one but
 *two* #FT2 sections, with #Fil sections that appear *after* the first #FT2 
 section.
 
