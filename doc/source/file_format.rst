@@ -46,7 +46,7 @@ section.
 Header
 ======
 
-Size: 68 bytes? Variable length?
+This header is common to both Affinity container files and 
 
 +---------+-------------+---------------------+-------------------------------+
 | Count   | Type        | name                | Description                   |
@@ -57,28 +57,10 @@ Size: 68 bytes? Variable length?
 +---------+-------------+---------------------+-------------------------------+
 |    1    |  uint32\_t  | file type           | kind of document contained    |
 +---------+-------------+---------------------+-------------------------------+
-+    4    +     char    | info section marker | "#Inf"                        |
-+---------+-------------+---------------------+-------------------------------+
-|         |             | FAT\_offset         | See Notes on offset           |
-+         +             +---------------------+-------------------------------+
-|         |             | FAT\_end\_offset    | See Notes on offset           |
-+         + uint64\_t   +---------------------+-------------------------------+
-|         |             | data\_length        | See Notes on offset           |
-+         +             +---------------------+-------------------------------+
-|         |             | unused / unknown    | apparently always zero        |
-+    1    +-------------+---------------------+-------------------------------+
-|         |             | creation            | Date (unix timestamp)         |
-+         +             +---------------------+-------------------------------+
-|         |             | unknown / unused    | apparently always zero        |
-+         + uint32\_t   +---------------------+-------------------------------+
-|         |             | unknown             | unknown                       |
-+         +             +---------------------+-------------------------------+
-|         |             | unknown             | unknown                       |
-+---------+-------------+---------------------+-------------------------------+
-|    4    |     char    | Prot marker         | "Prot"                        |
-+---------+-------------+---------------------+-------------------------------+
-|    1    | uint32\_t   | unknown             | usually non-zero              |    
-+---------+-------------+---------------------+-------------------------------+
+
+The last byte of the signature is 0x41 for the main container documents and 
+apparently 0x53 for most of the documents it contains (persona documents, 
+swatches etc.).
 
 
 Notes
@@ -197,6 +179,40 @@ version of the container format, with some like the raster_brushes.propcol using
 version 8 instead of 10, even for Affinity 1.5. This may be due to them being
 created by older versions and never having been re-written since.
 
+
+#Inf section
+============
+
+In container files, this is followed by the '#Inf' section.
+
++---------+-------------+---------------------+-------------------------------+
+| Count   | Type        | name                | Description                   |
++=========+=============+=====================+===============================+
++    4    +     char    | info section marker | "#Inf"                        |
++---------+-------------+---------------------+-------------------------------+
+|         |             | FAT\_offset         | See Notes on offset           |
++         +             +---------------------+-------------------------------+
+|         |             | FAT\_end\_offset    | See Notes on offset           |
++         + uint64\_t   +---------------------+-------------------------------+
+|         |             | data\_length        | See Notes on offset           |
++         +             +---------------------+-------------------------------+
+|         |             | unused / unknown    | apparently always zero        |
++    1    +-------------+---------------------+-------------------------------+
+|         |             | creation            | Date (unix timestamp)         |
++         +             +---------------------+-------------------------------+
+|         |             | unknown / unused    | apparently always zero        |
++         + uint32\_t   +---------------------+-------------------------------+
+|         |             | unknown             | unknown                       |
++         +             +---------------------+-------------------------------+
+|         |             | unknown             | unknown                       |
++---------+-------------+---------------------+-------------------------------+
+|    4    |     char    | Prot marker         | "Prot"                        |
++---------+-------------+---------------------+-------------------------------+
+|    1    | uint32\_t   | unknown             | usually non-zero              |    
++---------+-------------+---------------------+-------------------------------+
+
+Notes
+-----
 
 Offsets
 ~~~~~~~
@@ -704,6 +720,9 @@ Curves
 | tag      |    1    |  uint32_t   | Crvs                  |
 +----------+---------+-------------+-----------------------+
 
+CrvD (Curve Description?)
+-------------------------
+
 Rect (Rect)
 -----------
 Rectangle, 4 32-bit integers, order x, y, w, h
@@ -721,10 +740,11 @@ This file is the main (and usually only) file in an .afpalette file that
 contains color swatches. It is usually stored uncompressed.
 
 The file format is similar to the doc.dat format in that it is made of 
-individual chunks.
+individual chunks and starts with a similar signature and version.
 
-Unfortunately, there is no size or version field, meaning that it is not 
-possible to skip unknown or unsupported chunks when reading.
+Unfortunately, there is no size or version field in the individual chunks, 
+meaning that it is not possible to skip unknown or unsupported chunks when 
+reading. It also makes it difficult to spot potential nested chunks.
 
 Some of the chunks in a swatches document also seem to pop up in a doc.dat file.
 At this point, it is not clear if this is because of embedded swatches, or if
@@ -747,27 +767,87 @@ Here are the ones that are known so far. Note that since there are no size
 fields, some of these might be nested in others or only happen to be four 
 characters in length but not tags.
 
+An empty application palette consists of PalV, PlCN, PalV, and a PanV chunk in
+that order.
+
+The pattern 'FilS' - 'Colr' - 'RGBA' - 'colD' seems to be repeated for each 
+swatch in the file, though 'FilS' - 'Fill' - 'Colr' - 'RGBA' - 'colD' also seems
+to be a possibility.
+
+Hence we can surmise that 'FilS' is a "Fill Setting" and the other tags are 
+possibly nested and that the file format is not based on basic chunks like
+TIFF or PNG, which also explains the absence of version or size fields.
+
+One possible explanation is that the serializer for each C++ class starts the 
+writing process with a four-byte signature tag, followed by whatever data it
+wants to save. So if the class saves multiple data fields, some of which are 
+classes that know how to serialize themselves, these would also save their tags,
+hence leading to nesting. If the tag was connected to a factory, this would also
+allow the system to instantiate polymorphic objects when reading the files.
+
+This would imply that there is some kind of root object that starts the process.
+By this logic, this would be the first one in the file, 'PalV'. For main 
+documents (doc.dat) it would be 'DocR'.
+
+One question this raises is how data from base classes are saved. If the 
+serializer saves base class data first, this would result in the derived class
+writing its signature, followed immediately by the base class signature. This
+type of combination theoretically stand out in files.
+
+So far, this is just speculation, though.
+
 PalV
 ----
 
 Palette V(alue? ersion?)
 
-Comes up first and only once in my sample file and the payload without the tag
-is 7 bytes in length.
+Payload is variable length. So far, 5, 7, and 10 bytes have been observed. 
+Occured once in one test file, but twice in another (empty application palette).
 
-PlCn
+Based on the 5-byte version, this is the data layout that can be reconstructed.
+
++-------+-----------+-------------+---------------------------------------------+
+| count | type      | name        | description                                 |
++=======+===========+=============+=============================================+
+| 1     | uint16\_t | unknown1    |                                             |
++-------+-----------+-------------+---------------------------------------------+
+| 1     | uint16\_t | unknown2    |                                             |
++-------+-----------+-------------+---------------------------------------------+
+| ...   | ...       | ...         | If first field is non-zero, more data here. |
+|       |           |             | If zero, there seems to be one byte of      |
+|       |           |             | non-zero data here.                         |
++-------+-----------+-------------+---------------------------------------------+
+
+
+For an occurence with the first two fields being 0, the size was 5 bytes.
+For an occurence with the first two fields being 1 and 3, the total size was 7
+bytes. For 8 and 0, 10 bytes.
+
+PlCN
 ----
 
-Palette C(ount?)
+Palette C(ontainer?) Name
 
-Only one instance, payload probably one single uint32_t. There was one more 
-swatch in the file than the value of this int, so it might be the index of the
-last item in the palette (i.e. count - 1).
+Contains the name of the swatch palette as a string. Layout is as follows
+
++----------+-----------+-------------+-------------------------------------+
+| count    | type      | name        | description                         |
++==========+===========+=============+=====================================+
+| 1        | uint32\_t | tag         | 'PlCN'                              |
++----------+-----------+-------------+-------------------------------------+
+| 1        | uint32\_t | name length | number of characters in name        |
++----------+-----------+-------------+-------------------------------------+
+| variable | char      | name        | name of the palette as 8-bit string |
++----------+-----------+-------------+-------------------------------------+
+| 1        | byte      | unknown     | set to 0xB1                         |
++----------+-----------+-------------+-------------------------------------+
 
 FilS
 ----
 
-Constant length of 1 byte, usually set to 1 (boolean?)
+Fill Setting (?)
+
+Constant length of 4 bytes, usually set to 1 (boolean stored as uint32\_t?)
 
 Fill
 ----
@@ -777,30 +857,65 @@ Only came up once, with 5 bytes of payload
 Colr
 ----
 
-Multiple instance. Payload length is 6 bytes, unless RGBA and HSLA are nested 
-tags.
+Multiple instance. Payload length is 6 bytes (unless RGBA and HSLA are nested 
+tags, which we don't know).
+
+Layout seems to be UInt8, UInt8, then 00 00 00 01 hex. Since the format is 
+little endian, it is unlikely that it is a UInt32. If it is two shorts, it might
+be minimum and maximum intensity (0 and 255 decimal respectively). Or it might 
+be four times independent UInt8, one each of an RGBA value for instance.
+
+This tag does not come up in an empty swatches file.
 
 RGBA, HSLA
 ----------
 
-No payload or four bytes. Possibly the last part of the 'Colr' chunk. Usually 
-followed by a ColD chunk.
+No payload or four bytes observed so far. Possibly the last part of the 'Colr'
+chunk. Usually followed by a ColD chunk.
 
 colD
 ----
 
-Multiple occurences, length is constant 25 bytes
+Multiple occurences, length is varying. Lengths of 20 and 25 bytes have been 
+observed.
 
+This seems to contain the actual color values for the swatch.
+
++----------+-----------+--------------+-------------------------------------+
+| count    | type      | name         | description                         |
++==========+===========+==============+=====================================+
+| 1        | uint32\_t | tag          | 'colD'                              |
++----------+-----------+--------------+-------------------------------------+
+| 1        | uint8\_t  | unknown      | usually 0x5F                        |
++----------+-----------+--------------+-------------------------------------+
+| 4        | float32   | color values | R-G-B-A                             |
++----------+-----------+--------------+-------------------------------------+
+| variable | byte      | unknown      | unknown - may not be present        |
++----------+-----------+--------------+-------------------------------------+
+
+Note that Affinity also saves a noise component for all colors (accessible in
+the UI by clicking the opacity dot in the Color panel). This is presumably saved
+in one of the unknown fields.
+
+TBD: How does this look for HSL, CMYK, or Spot color swatches?
+
+The curious changing length at the end of the data indicates that this chunk is
+either actually part of another chunk, or that at least its length is determined
+by data in one of the preceding chunks.
 
 PaNV
 ----
 
-Palette N... Values?
+Palette Name Values?
 
-This contains the actual color swatch definitions as ASCII strings in the vein
-of "R:230 G:23 B:118" or "H:108 S:89 L:37".
+This chunk contains a list of the names of all swatches. 
 
-Layout of the chunk is as follows
+NOTE: While these tend to contain actual color values, this is due to the fact
+that Affinity names swatches based on their numeric values by default.
+
+The actual color data is stored in other chunks (see ColD).
+
+Layout of the 'PaNV' chunk is as follows
 
 +--------+-----------+--------------+--------------------------------+
 | count  | type      | name         | description                    |
@@ -812,9 +927,7 @@ Layout of the chunk is as follows
 | 1      | uint32\_t | num swatches | swatch count. See notes.       |
 +--------+-----------+--------------+--------------------------------+
 
-Note: The swatch count field might also be the bit depth of the color 
-specifications (I had 8 swatches in my test file so I can't say for sure until
-I check more files), but I think swatch count is a lot more likely.
+If the data size is 0, num swatches appears to only be one single zero byte.
 
 What follows is the swatch data. Curiously, the color values are stored as 
 ASCII pascal strings.
