@@ -794,6 +794,10 @@ serializer saves base class data first, this would result in the derived class
 writing its signature, followed immediately by the base class signature. This
 type of combination theoretically stand out in files.
 
+One such instance might be 'FilS' and 'FilG': Both are followed by four bytes
+of data, then 'Fill', indicating that the classes 'FilS' (FillSolid) and 'FilG'
+(FillGradient) might inherit from the base class 'Fill' (Fill).
+
 So far, this is just speculation, though.
 
 PalV
@@ -845,14 +849,64 @@ Contains the name of the swatch palette as a string. Layout is as follows
 FilS
 ----
 
-Fill Setting (?)
+Fill Solid (?)
 
 Constant length of 4 bytes, usually set to 1 (boolean stored as uint32\_t?)
+
+FilG
+----
+
+Fill Gradient (?) Replaces 'FilS' in gradient swatches.
 
 Fill
 ----
 
-Only came up once, with 5 bytes of payload
+Only came up once, with 5 bytes of payload. Looks like a uint32\_t and a uint8\_t.
+The uint32\_t seems to be set to 2 for both solid and gradient fills. The 
+uint8\_t differs. So far it's been 0x31 for solid fills, and 0x2A with gradient
+fills.
+
+If the inheritance theory is correct, the 'Fill' class seems to save either four
+or five bytes of data, and then the derived class starts serializing its members.
+
+Grad
+----
+
+Seems to be part of gradient swatches.
+
+Posn
+----
+
+Also related to gradient swatches.
+
+Type
+----
+
+Also part of gradient swatches. Specifies the gradient type (linear, conical etc.)
+
++----------+-----------+---------------+-------------------------------------+
+| count    | type      | name          | description                         |
++==========+===========+===============+=====================================+
+| 1        | uint32\_t | tag           | 'Type'                              |
++----------+-----------+---------------+-------------------------------------+
+| 1        | uint32\_t | gradient type | values see below                    |
++----------+-----------+---------------+-------------------------------------+
+| 1        | uint8\_t  | unknown       | usually set to 0x31                 |
++----------+-----------+---------------+-------------------------------------+
+
+The type values are as follows:
+
++-------+------------+
+| value | type       |
++=======+============+
+| 0     | linear     |
++-------+------------+
+| 1     | elliptical |
++-------+------------+
+| 2     | radial     |
++-------+------------+
+| 3     | conical    |
++-------+------------+
 
 Colr
 ----
@@ -888,7 +942,7 @@ This seems to contain the actual color values for the swatch.
 +----------+-----------+--------------+-------------------------------------+
 | 1        | uint8\_t  | unknown      | usually 0x5F                        |
 +----------+-----------+--------------+-------------------------------------+
-| 4        | float32   | color values | R-G-B-A                             |
+| 4        | float32   | color values | R-G-B-A / H-S-L-A                   |
 +----------+-----------+--------------+-------------------------------------+
 | variable | byte      | unknown      | unknown - may not be present        |
 +----------+-----------+--------------+-------------------------------------+
@@ -897,7 +951,12 @@ Note that Affinity also saves a noise component for all colors (accessible in
 the UI by clicking the opacity dot in the Color panel). This is presumably saved
 in one of the unknown fields.
 
-TBD: How does this look for HSL, CMYK, or Spot color swatches?
+The interpretation of the color values changes depending on whether the 'colD' 
+section is preceded by 'RGBA' or 'HSLA' (possibly others). For RGBA values, 
+the data is stored in the range from 0.0 to 1.0 (HDR swatches to be 
+determined). In HSL mode, the scale for hue is also from 0.0 to 1.0 
+(representing 0 degrees to 360 degrees respectively). Grayscale values seem to
+be stored as RGBA.
 
 The curious changing length at the end of the data indicates that this chunk is
 either actually part of another chunk, or that at least its length is determined
