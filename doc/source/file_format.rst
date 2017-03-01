@@ -46,7 +46,7 @@ section.
 Header
 ======
 
-This header is common to both Affinity container files and 
+This header is common to both Affinity container files and the files nested inside.
 
 +---------+-------------+---------------------+-------------------------------+
 | Count   | Type        | name                | Description                   |
@@ -929,13 +929,8 @@ Layout of the 'PaNV' chunk is as follows
 
 If the data size is 0, num swatches appears to only be one single zero byte.
 
-What follows is the swatch data. Curiously, the color values are stored as 
-ASCII pascal strings.
+What follows is the name data. The names are stored as 8-bit pascal strings, 
+presumably UTF-8.
 
 Each entry is a uint32\_t length field, followed by as many characters as 
 specified by that field. There is no zero terminator.
-
-The strings have the form "R:230 G:23 B:118" or "H:108 S:89 L:37", i.e. the 
-color model is implicit, values are stored as 8-bit ASCII text with no zero 
-padding, but a single whitespace to separate the values (probably for easy
-parsing with sscanf).
