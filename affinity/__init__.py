@@ -80,31 +80,31 @@ class FATHeader(object):
 # Returns a correctly byte swapped value for the given four character uint32_t
 # constant. For example, fourcc( b'Pers' ) will return an integer with the value
 # b'sreP'.
-def fourcc( value ):
-    return struct.unpack( '>I', value )[ 0 ];
+def fourcc(value):
+    return struct.unpack('>I', value)[0];
 
 
 class AffinityFile(object):
     
     # Known signatures of Affinity container files.
     known_file_types = (
-        fourcc( b'Prsn' ), # Persona Document
-        fourcc( b'BrAr' ), # Brush Archive or Macro Archive
-        fourcc( b'AsAr' ), # Assets Archive
-        fourcc( b'Swth' ), # Swatch Palette
-        fourcc( b'Pref' ), # preferences.dat
-        fourcc( b'Adjm' ), # adjustments.propcol
-        fourcc( b'AstP' ), # assets.propcol
-        fourcc( b'CroP' ), # croppresets.propcol
-        fourcc( b'DevP' ), # develop.propcol
-        fourcc( b'Fils' ), # fills.propcol
-        fourcc( b'Macs' ), # macros.propcol
-        fourcc( b'Objs' ), # objects.propcol
-        fourcc( b'OSty' ), # objectstyles.propcol
-        fourcc( b'RBru' ), # raster_brushes.propcol
-        fourcc( b'Shps' ), # shapes.propcol
-        fourcc( b'TonP' ), # tone_map.propcol
-        fourcc( b'VBru' )  # vector_brushes.propcol
+        fourcc(b'Prsn'), # Persona Document
+        fourcc(b'BrAr'), # Brush Archive or Macro Archive
+        fourcc(b'AsAr'), # Assets Archive
+        fourcc(b'Swth'), # Swatch Palette
+        fourcc(b'Pref'), # preferences.dat
+        fourcc(b'Adjm'), # adjustments.propcol
+        fourcc(b'AstP'), # assets.propcol
+        fourcc(b'CroP'), # croppresets.propcol
+        fourcc(b'DevP'), # develop.propcol
+        fourcc(b'Fils'), # fills.propcol
+        fourcc(b'Macs'), # macros.propcol
+        fourcc(b'Objs'), # objects.propcol
+        fourcc(b'OSty'), # objectstyles.propcol
+        fourcc(b'RBru'), # raster_brushes.propcol
+        fourcc(b'Shps'), # shapes.propcol
+        fourcc(b'TonP'), # tone_map.propcol
+        fourcc(b'VBru')  # vector_brushes.propcol
     )
     
     def __init__(self, filename):
