@@ -77,12 +77,41 @@ class FATHeader(object):
         return FATHeader(flags, timestamp, unused, offsets, fat_length, unused_2)
 
 
+# Returns a correctly byte swapped value for the given four character uint32_t
+# constant. For example, fourcc( b'Pers' ) will return an integer with the value
+# b'sreP'.
+def fourcc( value ):
+    return struct.unpack( '>I', value )[ 0 ];
+
+
 class AffinityFile(object):
+    
+    # Known signatures of Affinity container files.
+    known_file_types = (
+        fourcc( b'Prsn' ), # Persona Document
+        fourcc( b'BrAr' ), # Brush Archive or Macro Archive
+        fourcc( b'AsAr' ), # Assets Archive
+        fourcc( b'Swth' ), # Swatch Palette
+        fourcc( b'Pref' ), # preferences.dat
+        fourcc( b'Adjm' ), # adjustments.propcol
+        fourcc( b'AstP' ), # assets.propcol
+        fourcc( b'CroP' ), # croppresets.propcol
+        fourcc( b'DevP' ), # develop.propcol
+        fourcc( b'Fils' ), # fills.propcol
+        fourcc( b'Macs' ), # macros.propcol
+        fourcc( b'Objs' ), # objects.propcol
+        fourcc( b'OSty' ), # objectstyles.propcol
+        fourcc( b'RBru' ), # raster_brushes.propcol
+        fourcc( b'Shps' ), # shapes.propcol
+        fourcc( b'TonP' ), # tone_map.propcol
+        fourcc( b'VBru' )  # vector_brushes.propcol
+    )
+    
     def __init__(self, filename):
         f = open(filename, 'rb')
         #self.headers = Header(*unpack(f, "<III"))
-        signature, version, prsn = unpack(f, "<2I4s")
-        assert prsn == b'nsrP', "This doesn't look like an AffinityDesigner file!"
+        signature, version, file_type = unpack(f, "<3I")
+        assert file_type in AffinityFile.known_file_types, "This doesn't look like an Affinity file!"
 
         inf, = unpack(f, "<4s")
         assert inf == b'#Inf', 'Expected #Inf section!'
