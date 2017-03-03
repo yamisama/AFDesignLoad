@@ -391,36 +391,38 @@ Thumbnail
 The thubnail, if present, follows after the #FAT/#FT2. It is only stored for
 documents, not for swatches etc.
 
+Thumbnails seem to always have a size of 512 pixels on the long edge.
+
 Note that the thumbnail is not a nested file in the container and thus is not
 listet in the FAT.
 
-The Section looks like this:
+The Section looks like this: 
 
 +-----------+-----------------------+-------------------------------------+
 | Type      | Name                  | Description                         |
 +===========+=======================+=====================================+
 | char[4]   | Marker                | "Thmb"                              |
 +-----------+-----------------------+-------------------------------------+
-| uint32\_t | unknown               | unknown                             |
+| uint32\_t | unknown               | unknown (bool?) usually set to 1    |
 +-----------+-----------------------+-------------------------------------+
-| uint32\_t | unknown               | unknown                             |
+| uint32\_t | length + 13           | always thumbnail data length + 13   |
 +-----------+-----------------------+-------------------------------------+
 | uint64\_t | unknown               | unknown                             |
 +-----------+-----------------------+-------------------------------------+
 | uint32\_t | thumbnail data length | length of the PNG thumnail in bytes |
 +-----------+-----------------------+-------------------------------------+
-| 2 bytes   | unknown               | non-zero                            |
+| byte      | unknown               | usually set to 0x01                 |
 +-----------+-----------------------+-------------------------------------+
 | variable  | thumbnail data        | length as per field above           |
 +-----------+-----------------------+-------------------------------------+
 
-Some of the unknown fields might be thumbnail width and height or similar.
-
 If you want to read the embedded thumbnail, the best strategy is to look in the
 header for the FAT end offset, then seek to it. If it is EOF, there is no 
-thumbnail. If not, check for the "Thmb" marker, and if it is there, read the
-thumbnail data as specified here.
+thumbnail. If not, skip the four bytes FF FF FF FF FAT end marker, check for the
+"Thmb" marker, and if it is there, read the thumbnail data as specified here.
 
+Note that the file signatures of PNG files is 8 bytes in length and starts
+one byte before the human-readable 'PNG' with the byte set to 0x89.
 
 doc.dat
 =======
@@ -798,7 +800,8 @@ One such instance might be 'FilS' and 'FilG': Both are followed by four bytes
 of data, then 'Fill', indicating that the classes 'FilS' (FillSolid) and 'FilG'
 (FillGradient) might inherit from the base class 'Fill' (Fill).
 
-So far, this is just speculation, though.
+So far, this is just speculation, though. It does not explain why 'Fill' only 
+shows up in the first swatch.
 
 PalV
 ----
@@ -926,6 +929,39 @@ RGBA, HSLA
 
 No payload or four bytes observed so far. Possibly the last part of the 'Colr'
 chunk. Usually followed by a ColD chunk.
+
+Pant
+----
+
+For spot colors, this comes up after 'Colr' in the place where 'RGBA'/'HSLA' 
+would usually be. 
+
+_glb
+----
+
+This follows five bytes after 'Pant' for global colors.
+
+base
+----
+
+This is for non-overprinting spot colors.
+
+_ovp
+----
+
+This replaces 'base' for overprinting spot colors
+
+ispt
+----
+
+Part of spot color definitions
+
+name
+----
+
+Follows after 'ispt' in spot color definitions and contains a uint32\_t length
+field that specifies the number of characters in the name, followed by the name
+itself and 3 more bytes of data.
 
 colD
 ----
